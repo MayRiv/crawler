@@ -43,12 +43,12 @@ func (x *ExampleExtender) Visit(ctx *gocrawl.URLContext, res *http.Response, doc
 	//var flag = r.CounterRx.MatchString(string(htmlData))
 	var flag = r.HasCounter(string(htmlData))
 	if (flag == true){
-		log.Print("Found ")
+		//log.Print("Found ")
 		siteCheckedChannel <- struct {string; bool}{ctx.URL().String(), true }				
 	} else {
 		siteCheckedChannel <- struct {string; bool}{ctx.URL().String(), false }
 	}
-	log.Println(ctx.URL());
+	//log.Println(ctx.URL());
 	return nil, true
 }
 
@@ -118,7 +118,7 @@ func getSites() map[string]Site {
 	log.Print("Finished loading sites")	
 	return sites
 }
-func launch(sites map[string]Site){
+func launch(sites map[string]Site, finish chan bool){
 	opts := gocrawl.NewOptions(new(ExampleExtender))
 	opts.RobotUserAgent = "Example"
 	opts.UserAgent = "Mozilla/5.0 (compatible; Example/1.0; +http://example.com)"
@@ -130,11 +130,13 @@ func launch(sites map[string]Site){
 		crawler.Run(url)
 	}
 	log.Print("Finished crawling")
+	finish <- true
 }
 
 func manager(sitesStatChannel chan map[string]Site, siteSetAboveLawChannel chan int) {
 	sites := getSites()
-	go launch(sites)
+	finish := make(chan bool)
+	go launch(sites, finish)
 	for {
 		select {
 		case site := <- siteCheckedChannel:
@@ -151,6 +153,17 @@ func manager(sitesStatChannel chan map[string]Site, siteSetAboveLawChannel chan 
 					sites[key] = Site{sites[key].Url, sites[key].Id, true, sites[key].AboveLaw}
 				}
 			}
+		case <- finish:
+			updateSites:= getSites()
+			for url, site := range updateSites {
+				if val, ok := sites[url]; ok {
+					if val.AboveLaw{
+						continue
+					}
+				}
+				sites[url] = site
+			}
+			go launch(sites, finish)
 		}
 	
 
@@ -158,20 +171,6 @@ func manager(sitesStatChannel chan map[string]Site, siteSetAboveLawChannel chan 
 	
 }
 
-/*func (s *Struct) ServeHTTP(
-	w http.ResponseWriter,
-	r *http.Request) {
-	fmt.Fprint(w,"<html><head></head><body>\n")
-	//stat := <- siteChannel
-	stat:= <-s.sitesStatChannel
-	fmt.Fprint(w,"<p>")
-	for key, value := range stat {
-		if (value.HasCounter != true) && (value.AboveLaw != true){
-    		fmt.Fprintf(w,"<a href='%s'>%s</a> :  <a href='/AboveLaw?id=%d'>Set as exception</a> <a href='//admin.bigmir.net/top/edit/%d'>Edit</a> <br/>", key, key, value.Id, value.Id)
-    		}
-	}
-	fmt.Fprint(w,"</p></body><html>")
-}*/
 func showSites(w http.ResponseWriter,
 	r *http.Request,
 	s chan map[string]Site) {
@@ -192,12 +191,12 @@ func updateAboveTheLaw(
 	s chan int) {
 	r.ParseForm()
 	if val, ok := r.Form["id"]; ok {
-    	i, err := strconv.Atoi(val[0])
-    	if err != nil {
-    		fmt.Fprint(w,"TERRIBLE ERROR")
-        	return
-   		}
-   		s <- i
+		i, err := strconv.Atoi(val[0])
+		if err != nil {
+			fmt.Fprint(w,"Not a number as param to setAboveLaw")
+			return
+			}
+			s <- i
 	}
 
 	fmt.Fprint(w,"<html><head></head><body>\n")
@@ -205,5 +204,3 @@ func updateAboveTheLaw(
 	fmt.Fprint(w,"<a href='/Show'>Back</a>")
 	fmt.Fprint(w,"</body><html>")
 }
-
-
