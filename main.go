@@ -195,7 +195,7 @@ func showSites(w http.ResponseWriter,
 	fmt.Fprint(w,"<p>")
 	for key, value := range stat {
 		if (value.HasCounter != true) && (value.AboveLaw != true) && (value.Hidden != true){
-			fmt.Fprintf(w,"<a href='%s'>%s</a> users  %d   :  <a href='/AboveLaw?id=%d'>Set as exception</a> <a href='/Ignore?id=%d'>Hide</a> <a href='//admin.bigmir.net/top/edit/%d'>Edit</a> <br/>", key, key,value.Users, value.Id, value.Id)
+			fmt.Fprintf(w,"<a href='%s'>%s</a> users  %d   :  <a href='/AboveLaw?id=%d'>Set as exception</a> <a href='/Ignore?id=%d'>Hide</a> <a href='//admin.bigmir.net/top/edit/%d'>Edit</a> <br/>", key, key,value.Users, value.Id, value.Id, value.Id)
 		}
 	}
 	fmt.Fprint(w,"</p></body><html>")
