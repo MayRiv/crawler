@@ -61,6 +61,8 @@ type Site struct{
 	Id int
 	HasCounter bool
 	AboveLaw bool
+	Hidden bool
+	Users int
 }
 func (s Site) setHavingCounter(flag bool){
 	s.HasCounter = flag
@@ -77,13 +79,17 @@ func main() {
 	flag.Parse()
 	sitesStatChannel := make(chan map[string]Site)
 	siteSetAboveLawChannel := make(chan int)
-	go manager(sitesStatChannel,siteSetAboveLawChannel)
+	siteIgnoreChannel := make(chan int)
+	go manager(sitesStatChannel,siteSetAboveLawChannel,siteIgnoreChannel)
 	//http.Handle("/Show", &Struct{sitesStatChannel})
 	http.HandleFunc("/Show", func(w http.ResponseWriter, r *http.Request) {
 		showSites(w,r,sitesStatChannel)
 	})
 	http.HandleFunc("/AboveLaw", func(w http.ResponseWriter, r *http.Request) {
 		updateAboveTheLaw(w,r, siteSetAboveLawChannel)
+	})
+	http.HandleFunc("/Ignore", func(w http.ResponseWriter, r *http.Request) {
+		ignoreSite(w,r, siteIgnoreChannel)
 	})
 	addr := fmt.Sprintf("%s:%s", *ip, *port)
 	log.Println("Started at",addr)
@@ -105,15 +111,17 @@ func getSites() map[string]Site {
 	// insert
 	err = db.Ping();
 	checkErr(err)
-	rows, err := db.Query("SELECT siteid, url FROM sites where active != 6 and active != 3 and active != 0")
+	rows, err := db.Query("SELECT siteid, users_30 as users, url FROM sites where active != 6 and active != 3 and active != 0")
 
 	for rows.Next() {
-	    var uid int
-	    var url string
-	    err = rows.Scan(&uid, &url)
-	    checkErr(err)
-	    site := Site{Url:url, Id:uid, HasCounter:true, AboveLaw:false}
-	    sites[url] = site	
+		var uid int
+		var users int
+		var url string
+
+		err = rows.Scan(&uid,&users, &url)
+		checkErr(err)
+		site := Site{Url:url, Id:uid, HasCounter:true, AboveLaw:false, Hidden:false, Users:users}
+		sites[url] = site
 	}
 	log.Print("Finished loading sites")	
 	return sites
@@ -133,7 +141,7 @@ func launch(sites map[string]Site, finish chan bool){
 	finish <- true
 }
 
-func manager(sitesStatChannel chan map[string]Site, siteSetAboveLawChannel chan int) {
+func manager(sitesStatChannel chan map[string]Site, siteSetAboveLawChannel chan int, siteIgnoreChannel chan int) {
 	sites := getSites()
 	finish := make(chan bool)
 	go launch(sites, finish)
@@ -142,7 +150,7 @@ func manager(sitesStatChannel chan map[string]Site, siteSetAboveLawChannel chan 
 		case site := <- siteCheckedChannel:
 			_, ok := sites[site.string]
 			if ok {
-				sites[site.string] = Site{sites[site.string].Url, sites[site.string].Id, site.bool, sites[site.string].AboveLaw}
+				sites[site.string] = Site{sites[site.string].Url, sites[site.string].Id, site.bool, sites[site.string].AboveLaw, sites[site.string].Hidden, sites[site.string].Users}
 			}
 		case  sitesStatChannel <- sites:
 
@@ -150,7 +158,14 @@ func manager(sitesStatChannel chan map[string]Site, siteSetAboveLawChannel chan 
 			for key, value := range  sites{
 				if value.Id == siteId {
 					value.AboveLaw = true
-					sites[key] = Site{sites[key].Url, sites[key].Id, true, sites[key].AboveLaw}
+					sites[key] = Site{sites[key].Url, sites[key].Id, true, sites[key].AboveLaw, sites[key].Hidden, sites[key].Users}
+				}
+			}
+		case siteId := <- siteIgnoreChannel:
+			for key, value := range  sites{
+				if value.Id == siteId {
+					value.Hidden = true
+					sites[key] = Site{sites[key].Url, sites[key].Id, true, sites[key].AboveLaw, sites[key]. Hidden, sites[key].Users}
 				}
 			}
 		case <- finish:
@@ -179,8 +194,8 @@ func showSites(w http.ResponseWriter,
 	stat:= <-s
 	fmt.Fprint(w,"<p>")
 	for key, value := range stat {
-		if (value.HasCounter != true) && (value.AboveLaw != true){
-			fmt.Fprintf(w,"<a href='%s'>%s</a> :  <a href='/AboveLaw?id=%d'>Set as exception</a> <a href='//admin.bigmir.net/top/edit/%d'>Edit</a> <br/>", key, key, value.Id, value.Id)
+		if (value.HasCounter != true) && (value.AboveLaw != true) && (value.Hidden != true){
+			fmt.Fprintf(w,"<a href='%s'>%s</a> users  %d   :  <a href='/AboveLaw?id=%d'>Set as exception</a> <a href='/Ignore?id=%d'>Hide</a> <a href='//admin.bigmir.net/top/edit/%d'>Edit</a> <br/>", key, key,value.Users, value.Id, value.Id)
 		}
 	}
 	fmt.Fprint(w,"</p></body><html>")
@@ -201,6 +216,26 @@ func updateAboveTheLaw(
 
 	fmt.Fprint(w,"<html><head></head><body>\n")
 	fmt.Fprint(w,"<p>Successfully updated<p> <br/>")
+	fmt.Fprint(w,"<a href='/Show'>Back</a>")
+	fmt.Fprint(w,"</body><html>")
+}
+
+func ignoreSite(
+	w http.ResponseWriter,
+	r *http.Request,
+	s chan int) {
+	r.ParseForm()
+	if val, ok := r.Form["id"]; ok {
+		i, err := strconv.Atoi(val[0])
+		if err != nil {
+			fmt.Fprint(w,"Not a number as param to ignore")
+			return
+		}
+		s <- i
+	}
+
+	fmt.Fprint(w,"<html><head></head><body>\n")
+	fmt.Fprint(w,"<p>Successfully ignored<p> <br/>")
 	fmt.Fprint(w,"<a href='/Show'>Back</a>")
 	fmt.Fprint(w,"</body><html>")
 }
