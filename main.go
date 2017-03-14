@@ -189,13 +189,31 @@ func manager(sitesStatChannel chan map[string]Site, siteSetAboveLawChannel chan 
 func showSites(w http.ResponseWriter,
 	r *http.Request,
 	s chan map[string]Site) {
-	fmt.Fprint(w,"<html><head></head><body>\n")
+
+	fmt.Fprint(w,"<html><head></head>")
+	fmt.Fprint(w,`<body bgcolor="white" leftmargin="5" topmargin="5" marginwidth="5" marginheight="5">
+	<table width="100%" border="0" align="center" cellpadding="3" cellspacing="1">
+	<tbody><tr>
+	<td><table width="760" border="0" align="center" cellpadding="3" cellspacing="1">
+	<tbody><tr>
+	<td height="20" colspan="6" align="center" bgcolor="#FFECB0" class="small">
+		новые сайты</td>
+	</tr>
+	<tr bgcolor="#DDDDDD">
+	<td height="20" align="center" class="small">ID</td>
+	<td align="center" class="small">Адресс</td>
+	<td align="center" class="small">Пользователи</td>
+	<td align="center" class="small">Спрятать</td>
+	<td align="center" class="small">Исключения</td>
+	</tr>`)
 	//stat := <- siteChannel
 	stat:= <-s
 	fmt.Fprint(w,"<p>")
 	for key, value := range stat {
+
 		if (value.HasCounter != true) && (value.AboveLaw != true) && (value.Hidden != true){
-			fmt.Fprintf(w,"<a href='%s'>%s</a> users  %d   :  <a href='/AboveLaw?id=%d'>Set as exception</a> <a href='/Ignore?id=%d'>Hide</a> <a href='//admin.bigmir.net/top/edit/%d'>Edit</a> <br/>", key, key,value.Users, value.Id, value.Id, value.Id)
+			//fmt.Fprintf(w,"<a href='%s'>%s</a> users  %d   :  <a href='/AboveLaw?id=%d'>Set as exception</a> <a href='/Ignore?id=%d'>Hide</a> <a href='//admin.bigmir.net/top/edit/%d'>Edit</a> <br/>", key, key,value.Users, value.Id, value.Id, value.Id)
+			fmt.Fprintf(w,"<tr><td><a href='//admin.bigmir.net/top/edit/%d'>%d</a></td><td><a href='%s'>%s</a></td><td>%d</td><td><a href='/Ignore?id=%d'>Hide</a></td><td><a href='/AboveLaw?id=%d'>Except</a></td></tr>",value.Id, value.Id, key, key, value.Users, value.Id,value.Id)
 		}
 	}
 	fmt.Fprint(w,"</p></body><html>")
