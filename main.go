@@ -190,6 +190,13 @@ func showSites(w http.ResponseWriter,
 	r *http.Request,
 	s chan map[string]Site) {
 
+	r.ParseForm()
+	page := 0
+	if val, ok := r.Form["p"]; ok {
+		page, _ = strconv.Atoi(val[0])
+		page = page - 1
+	}
+
 	fmt.Fprint(w,"<html><head></head>")
 	fmt.Fprint(w,`<body bgcolor="white" leftmargin="5" topmargin="5" marginwidth="5" marginheight="5">
 	<table width="100%" border="0" align="center" cellpadding="3" cellspacing="1">
@@ -209,14 +216,32 @@ func showSites(w http.ResponseWriter,
 	//stat := <- siteChannel
 	stat:= <-s
 	fmt.Fprint(w,"<p>")
+	counter:=0
 	for key, value := range stat {
 
-		if (value.HasCounter != true) && (value.AboveLaw != true) && (value.Hidden != true){
+		if (value.HasCounter != true) && (value.AboveLaw != true) && (value.Hidden != true) && (counter < (page + 1) * 10){
+			counter = counter + 1
 			//fmt.Fprintf(w,"<a href='%s'>%s</a> users  %d   :  <a href='/AboveLaw?id=%d'>Set as exception</a> <a href='/Ignore?id=%d'>Hide</a> <a href='//admin.bigmir.net/top/edit/%d'>Edit</a> <br/>", key, key,value.Users, value.Id, value.Id, value.Id)
-			fmt.Fprintf(w,"<tr><td><a href='//admin.bigmir.net/top/edit/%d'>%d</a></td><td><a href='%s'>%s</a></td><td>%d</td><td><a href='/Ignore?id=%d'>Hide</a></td><td><a href='/AboveLaw?id=%d'>Except</a></td></tr>",value.Id, value.Id, key, key, value.Users, value.Id,value.Id)
+			if (counter > page * 10){
+				fmt.Fprintf(w,"<tr><td><a href='//admin.bigmir.net/top/edit/%d'>%d</a></td><td><a href='%s'>%s</a></td><td>%d</td><td><a href='/Ignore?id=%d'>Hide</a></td><td><a href='/AboveLaw?id=%d'>Except</a></td></tr>",value.Id, value.Id, key, key, value.Users, value.Id,value.Id)
+			}
 		}
 	}
-	fmt.Fprint(w,"</p></body><html>")
+	fmt.Fprint(w,`<tr>
+	<td height="30" colspan="6">
+
+	<div class="pagingBlock"><span>Страницы:</span> `)
+	for i:=0;  i < 11; i++{
+		p := page - 5 + i
+		if (p > 0) && (p < len(stat) / 10 + 1){
+			if (p-1 == page) {
+				fmt.Fprintf(w,"<span id=\"current\">%d</span>  ",p)
+			} else {
+				fmt.Fprintf(w,"<a href=\"Show?p=%d\">%d</a>  ",p,p)
+			}
+		}
+	}
+	fmt.Fprint(w,"</td></tr></table></p></body><html>")
 }
 func updateAboveTheLaw(
 	w http.ResponseWriter,
