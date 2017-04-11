@@ -11,6 +11,7 @@ import (
 	"flag"
 
 	r "crawler/regexps"
+
 	"github.com/PuerkitoBio/gocrawl"
 	"github.com/PuerkitoBio/goquery"
 	_ "github.com/go-sql-driver/mysql"
@@ -106,7 +107,7 @@ func checkErr(err error) {
 
 func getSites() map[string]Site {
 	sites := make(map[string]Site)
-	db, err := sql.Open("mysql", "rating:LeikyarodTatyig@tcp(update.sputnikmedia.net:63306)/rating?charset=utf8")
+	db, err := sql.Open("mysql", connectString)
 	checkErr(err)
 	// insert
 	err = db.Ping();
